@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-from backpropagation import BackPropagation
+
 np.set_printoptions(threshold=sys.maxsize)
 
 baseTime = datetime.strptime('2012', '%Y')
@@ -123,14 +123,71 @@ def initValues():
 
     X = np.array(formatDataColumns(data))
 
-    x_train, x_test, y_train, y_test = (X[trainIndex, :],
-                                        X[testIndex, :],
-                                        Y[trainIndex].reshape(-1, 1),
-                                        Y[testIndex].reshape(-1, 1))
+    return (X[trainIndex, :],X[testIndex, :],Y[trainIndex].reshape(-1, 1),Y[testIndex].reshape(-1, 1))
 
-    NN = BackPropagation()
-    print(NN.fit(x_train, y_train, x_test, y_test))
 
+    
 
 if __name__ == "__main__":
-    initValues()
+    
+
+    x_train, x_test, y_train, y_test = initValues()
+    print(x_train.shape)
+
+    class neural_layer():
+
+        def __init__(self,no_conn,no_neur,act_fn):
+            self.act_fn=act_fn
+            self.b = np.random.rand(1,no_neur)*2-1
+            self.w = np.random.rand(no_conn,no_neur)*2-1
+
+    def create_nn(topology,act_fn):
+        nn=[]
+        for l,layer in enumerate(topology[:-1]):
+            nn.append(neural_layer(topology[l],topology[l+1],act_fn))
+
+        return nn
+    
+    sig = (lambda x: 1/(1+np.ex(-x)),
+            lambda x: x*(1-x))
+
+    l2_cost = (lambda x,y: (x-y),
+            lambda x,y: np.mean(x-y)**2)
+
+    p = x_train[1].shape
+    
+
+    topology = [p,4,8,4,1]
+
+    nn = create_nn(topology,sig)
+
+    def train(nn,X,Y,lr=0.01,l2_cost=l2_cost,train=True):
+        #Forward
+        out = [(None,X)]
+        for i in range(nn):
+            z = out[-1][1] @ neural_layer[i].w + neural_layer.b
+            a = neural_layer[i].act_fn(z)
+
+            out.append((z,a))
+
+        #Backward
+        if train:
+            delta = []
+
+            for l in reversed(range(0,len(nn))):
+                z = out[l+1][0]
+                a = out[l+1][1]
+
+                if l == len(nn)-1:
+                    delta.insert(0,l2_cost[0](out[-1][1],Y)*nn[l].act_fn[1](a))
+                else:
+                    delta.insert(0,delta[0] @ _w * nn[l].act_fn[1](a))
+
+                _w=nn[l].w
+
+                #Gradient descent
+                nn[l].b = nn[l].b - np.mean(delta[0])*lr
+                nn[l].w = nn[l].w - out[l][1]*delta[0]*lr
+
+        return out[-1][1]
+
