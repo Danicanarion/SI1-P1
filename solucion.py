@@ -164,7 +164,7 @@ if __name__ == "__main__":
    
     def train(nn,X,Y,lr=0.01,l2_cost=l2_cost,train=True):
         #Forward
-        out = [(None,X)]
+        out = [(None,X[np.newaxis, :])]
         for i in range(len(nn)):
             z = out[-1][1] @ nn[i].w + nn[i].b
             a = nn[i].act_fn[0](z.astype(float))
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         if train:
             delta = []
 
-            for l in reversed(range(1,len(nn))):
+            for l in reversed(range(0,len(nn))):
                 z = out[l+1][0]
                 a = out[l+1][1]
 
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                     delta.insert(0,delta[0] @ _w.T * nn[l].act_fn[1](a))
 
                 _w=nn[l].w
-
+                                  
                 #Gradient descent
                 nn[l].b = nn[l].b - np.mean(delta[0])*lr
                 nn[l].w = nn[l].w - out[l][1].T @ delta[0]*lr
