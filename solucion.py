@@ -148,25 +148,26 @@ if __name__ == "__main__":
 
         return nn
     
-    sig = (lambda x: 1/(1+np.ex(-x)),
+    sig = (lambda x: 1/(1 + np.exp(-x)),
             lambda x: x*(1-x))
 
     l2_cost = (lambda x,y: (x-y),
             lambda x,y: np.mean(x-y)**2)
 
-    p = x_train[1].shape
+    p = x_train.shape[1]
     
 
     topology = [p,4,8,4,1]
 
     nn = create_nn(topology,sig)
-
+    
+   
     def train(nn,X,Y,lr=0.01,l2_cost=l2_cost,train=True):
         #Forward
         out = [(None,X)]
-        for i in range(nn):
-            z = out[-1][1] @ neural_layer[i].w + neural_layer.b
-            a = neural_layer[i].act_fn(z)
+        for i in range(len(nn)):
+            z = out[-1][1] @ nn[i].w + nn[i].b
+            a = nn[i].act_fn[0](z.astype(float))
 
             out.append((z,a))
 
@@ -174,20 +175,23 @@ if __name__ == "__main__":
         if train:
             delta = []
 
-            for l in reversed(range(0,len(nn))):
+            for l in reversed(range(1,len(nn))):
                 z = out[l+1][0]
                 a = out[l+1][1]
 
                 if l == len(nn)-1:
                     delta.insert(0,l2_cost[0](out[-1][1],Y)*nn[l].act_fn[1](a))
                 else:
-                    delta.insert(0,delta[0] @ _w * nn[l].act_fn[1](a))
+                    delta.insert(0,delta[0] @ _w.T * nn[l].act_fn[1](a))
 
                 _w=nn[l].w
 
                 #Gradient descent
                 nn[l].b = nn[l].b - np.mean(delta[0])*lr
-                nn[l].w = nn[l].w - out[l][1]*delta[0]*lr
+                nn[l].w = nn[l].w - out[l][1].T @ delta[0]*lr
 
         return out[-1][1]
+        
+
+    print(train(nn, x_train[0,:], y_train[0]))
 
