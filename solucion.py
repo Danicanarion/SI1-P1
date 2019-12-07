@@ -129,7 +129,7 @@ def initValues():
                                         Y[testIndex].reshape(-1, 1))
 
     NN = BackPropagation()
-    print(NN.fit(x_train, y_train, x_test, y_test))
+    print(NN.fit(x_train, y_train, x_test, y_test, 2, [2, 1]))
 
 
 if __name__ == "__main__":

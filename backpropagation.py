@@ -5,13 +5,15 @@ from hiddenlayer import HiddenLayer
 from outputlayer import OutputLayer
 
 
-def sig(x): return 1/(1+np.e**(-x))
+def sig(x):
+   return 1/(1+np.e**(-x))
 
 
-def sigDx(x): return x*(1-x)
+def sigDx(x): 
+    return np.multiply(x,(1-x))
 
 
-l2_cost = (lambda Yp, Yr: np.mean((Yp-Yr)**2),
+l2_cost = (lambda Yp, Yr: np.mean(np.power((Yp-Yr), 2)),
            lambda Yp, Yr: (Yp-Yr))
 
 
@@ -35,7 +37,7 @@ class BackPropagation(object):
 
     """
 
-    def __init__(self, p_eta=0.01, p_number_iterations=50, p_random_state=None):
+    def __init__(self, p_eta=0.01, p_number_iterations=10, p_random_state=None):
         self.eta = p_eta
         self.number_iterations = p_number_iterations
         self.random_seed = np.random.RandomState(p_random_state)
@@ -72,41 +74,44 @@ class BackPropagation(object):
         for iter in range(self.number_iterations):
 
             for i in range(m):
-                # Forward
-                out = [(None, p_X_training[i, :])]
-                for layer in self.hidden_layers_:
-                    z = layer._net_input(out[-1][1])
-                    a = layer._activation(z)
-                    out.append((z, a))
+                #forward
+                x = p_X_training[i,:]
+                y = p_Y_training[i]
+                out = [(x, x)]
+                layers = self.hidden_layers_.copy()
+                layers.append(self.output_layer_)
+                for layer in layers:
+                    net_input = []
+                    for n in range(layer.number_neurons):
+                        suma = layer.w[0, n]
+                        for k in range(layer.number_inputs_each_neuron):
+                            suma = suma + layer.w[k, n] * out[-1][1][k]
+                        net_input.append(suma)
+                    activation = []
+                    for ni in net_input:
+                        activation.append(sig(ni))
+                    out.append((net_input, activation))
+                
+                #backward
+                
+                delta = None
+                _w = None
+                for idx, layer in enumerate(reversed(layers)):
+                    outIndex = len(out) - idx - 1
+                    a = np.array(out[outIndex][1])
+                    layer_input = np.array(out[outIndex - 1][1], ndmin=2)
+                    if idx == 0:
+                        delta = (y - out[-1][1]) * sigDx(a)
+                    else: 
+                        delta = (delta @ _w.T) * sigDx(a)
 
-                z = self.output_layer_._net_input(out[-1][1])
-                a = self.output_layer_._activation(z)
+                    _w = layer.w[1:,:]
+                    delta = np.array(delta, ndmin=2)
 
-                out.append((z, a))
+                    layer.w[0,:] = layer.w[0,:] + self.eta * np.mean(delta)
+                    layer.w[1:,:] = layer.w[1:,:] + self.eta * layer_input.T @ delta
 
-                # Backward
-                delta = []
-                a = out[-1][1]
-                delta.insert(0, l2_cost[1](
-                    p_Y_training[i], a) * sigDx(out[-1][0]))
-                _w = self.output_layer_.w
-
-                # Gradient descent
-                self.output_layer_.w = self.output_layer_.w - \
-                    self.eta * delta[0] * out[-2][0]
-
-                for layer in reversed(range(p_number_hidden_layers)):
-                    z = out[layer + 1][0]
-                    a = out[layer + 1][1]
-
-                    delta.insert(0,  _w @ delta[0].T * sigDx(z))
-
-                    print(delta[0], out[layer][1])
-
-                    _w = self.hidden_layers_[layer].w
-
-                    self.hidden_layers_[layer].w = self.hidden_layers_[
-                        layer].w - self.eta * delta[0] @ out[layer][1]
+                
 
             loss = l2_cost[0](p_Y_training, out[-1][1])
             acc = self.get_accuracy(p_Y_validation, p_X_validation)

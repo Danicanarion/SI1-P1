@@ -36,7 +36,7 @@ class Layer(object):
         return self.act_fnc(p_net_input)
 
     def _quantization(self, p_activation):
-        return numpy.where(p_activation >= 0.0, 1, -1)
+        return numpy.where(p_activation >= 0.5, 1, 0)
 
     @abc.abstractmethod
     def predict(self, p_X):
