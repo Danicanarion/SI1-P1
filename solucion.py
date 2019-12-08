@@ -132,10 +132,11 @@ def initValues():
                                         Y[testIndex].reshape(-1, 1))
     
     NN = BackPropagation()
+    NN.load_model('m.json')
     NN.load_weights('w.json')
     NN.fit(x_train, y_train, x_test, y_test, 2, [8, 4])
     NN.save_weights('w.json')
-
+    NN.save_model('m.json')
 
 if __name__ == "__main__":
     initValues()

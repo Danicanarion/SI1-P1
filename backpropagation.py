@@ -58,20 +58,7 @@ class BackPropagation(object):
         alfa = count[1] / count[0]
         (m, n) = p_X_training.shape
         
-        self.input_layer_ = InputLayer(p_X_training.shape[1])
-        self.hidden_layers_ = []
-        for v_layer in range(p_number_hidden_layers):
-            if v_layer == 0:
-                self.hidden_layers_.append(HiddenLayer(p_number_neurons_hidden_layers[v_layer],
-                                                       self.input_layer_.number_neurons,
-                                                       sig))
-            else:
-                self.hidden_layers_.append(HiddenLayer(p_number_neurons_hidden_layers[v_layer],
-                                                       p_number_neurons_hidden_layers[v_layer - 1],
-                                                       sig))
-        self.output_layer_ = OutputLayer(p_Y_training.shape[1],
-                                         self.hidden_layers_[self.hidden_layers_.__len__() - 1].number_neurons, sig)
-
+        self._load_model(p_X_training, p_Y_training, p_number_neurons_hidden_layers, p_number_hidden_layers)
         
         self._load_weights()
        
@@ -159,20 +146,41 @@ class BackPropagation(object):
         with open(sourceFile) as sf:
             self.model = json.load(sf)
 
-    def _load_model(self):
+    def _load_model(self, p_X_training,
+                          p_Y_training,
+                          p_number_neurons_hidden_layers,
+                          p_number_hidden_layers):
         if self.model != None:
-            pass
+            self.input_layer_ = InputLayer(self.model['input'])
+            self.hidden_layers_ = []
+            for number_neuron, input_neurons in self.model['hidden']:
+                self.hidden_layers_.append(HiddenLayer(number_neuron, input_neurons, sig))
+            self.output_layer_ = OutputLayer(self.model['output'][0], self.model['output'][1], sig)
         else:
-            pass
+            self.input_layer_ = InputLayer(p_X_training.shape[1])
+            self.hidden_layers_ = []
+            for v_layer in range(p_number_hidden_layers):
+                if v_layer == 0:
+                    self.hidden_layers_.append(HiddenLayer(p_number_neurons_hidden_layers[v_layer],
+                                                       self.input_layer_.number_neurons,
+                                                       sig))
+                else:
+                    self.hidden_layers_.append(HiddenLayer(p_number_neurons_hidden_layers[v_layer],
+                                                       p_number_neurons_hidden_layers[v_layer - 1],
+                                                       sig))
+            self.output_layer_ = OutputLayer(p_Y_training.shape[1],
+                                         self.hidden_layers_[self.hidden_layers_.__len__() - 1].number_neurons, sig)
+
+    
 
     def save_model(self, targetFile):
-        inputLayout = self.input_layer_.number_neurons.tolist()
+        inputLayout = self.input_layer_.number_neurons
         hiddenLayout = []
         for h in self.hidden_layers_:
-            hiddenLayout.append((h.number_neurons.tolist(),
-                                 h.number_inputs_each_neuron.tolist()))
-        outputLayout = (self.output_layer_.number_neurons.tolist(),
-                        self.output_layer_.number_inputs_each_neuron.tolist())
+            hiddenLayout.append((h.number_neurons,
+                                 h.number_inputs_each_neuron))
+        outputLayout = (self.output_layer_.number_neurons,
+                        self.output_layer_.number_inputs_each_neuron)
         data = {'input': inputLayout,
                 'hidden': hiddenLayout,
                 'output': outputLayout}
