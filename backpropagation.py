@@ -1,16 +1,19 @@
 import numpy as np
 import sys
+import time
 from inputlayer import InputLayer
 from hiddenlayer import HiddenLayer
 from outputlayer import OutputLayer
-
+import random
+import json
 
 def sig(x):
-   return 1/(1+np.e**(-x))
+   return 1/(1+np.exp(-x.astype(float)))
 
 
 def sigDx(x): 
-    return np.multiply(x,(1-x))
+    y = sig(x)
+    return np.multiply(y,(1-y))
 
 
 l2_cost = (lambda Yp, Yr: np.mean(np.power((Yp-Yr), 2)),
@@ -36,8 +39,9 @@ class BackPropagation(object):
          predict(p_x) .- Method to predict the output, y
 
     """
+    wights = None
 
-    def __init__(self, p_eta=0.01, p_number_iterations=10, p_random_state=None):
+    def __init__(self, p_eta=0.5, p_number_iterations=20, p_random_state=None):
         self.eta = p_eta
         self.number_iterations = p_number_iterations
         self.random_seed = np.random.RandomState(p_random_state)
@@ -49,8 +53,10 @@ class BackPropagation(object):
             p_number_hidden_layers=1,
             p_number_neurons_hidden_layers=np.array([1])):
 
+        count = np.bincount(p_Y_training.flatten())
+        alfa = count[1] / count[0]
         (m, n) = p_X_training.shape
-
+        
         self.input_layer_ = InputLayer(p_X_training.shape[1])
         self.hidden_layers_ = []
         for v_layer in range(p_number_hidden_layers):
@@ -65,59 +71,59 @@ class BackPropagation(object):
         self.output_layer_ = OutputLayer(p_Y_training.shape[1],
                                          self.hidden_layers_[self.hidden_layers_.__len__() - 1].number_neurons, sig)
 
-        self.input_layer_.init_w(self.random_seed)
-        for v_hidden_layer in self.hidden_layers_:
-            v_hidden_layer.init_w(self.random_seed)
-        self.output_layer_.init_w(self.random_seed)
-
+        if self.wights != None:
+            self._load_weights()
+        else:
+            self.input_layer_.init_w(self.random_seed)
+            for v_hidden_layer in self.hidden_layers_:
+                v_hidden_layer.init_w(self.random_seed)
+            self.output_layer_.init_w(self.random_seed)
+        
+        self.layers = self.hidden_layers_.copy()
+        self.layers.append(self.output_layer_)
+ 
         # ...
         for iter in range(self.number_iterations):
-
             for i in range(m):
-                #forward
-                x = p_X_training[i,:]
-                y = p_Y_training[i]
-                out = [(x, x)]
-                layers = self.hidden_layers_.copy()
-                layers.append(self.output_layer_)
-                for layer in layers:
-                    net_input = []
-                    for n in range(layer.number_neurons):
-                        suma = layer.w[0, n]
-                        for k in range(layer.number_inputs_each_neuron):
-                            suma = suma + layer.w[k, n] * out[-1][1][k]
-                        net_input.append(suma)
-                    activation = []
-                    for ni in net_input:
-                        activation.append(sig(ni))
-                    out.append((net_input, activation))
+                out = self._forward_pass(p_X_training[i,:])   
+                self._backward_pass(out, p_Y_training[i], alfa)
                 
-                #backward
-                
-                delta = None
-                _w = None
-                for idx, layer in enumerate(reversed(layers)):
-                    outIndex = len(out) - idx - 1
-                    a = np.array(out[outIndex][1])
-                    layer_input = np.array(out[outIndex - 1][1], ndmin=2)
-                    if idx == 0:
-                        delta = (y - out[-1][1]) * sigDx(a)
-                    else: 
-                        delta = (delta @ _w.T) * sigDx(a)
-
-                    _w = layer.w[1:,:]
-                    delta = np.array(delta, ndmin=2)
-
-                    layer.w[0,:] = layer.w[0,:] + self.eta * np.mean(delta)
-                    layer.w[1:,:] = layer.w[1:,:] + self.eta * layer_input.T @ delta
-
-                
-
-            loss = l2_cost[0](p_Y_training, out[-1][1])
+            loss = l2_cost[0](p_Y_training, self.predict(p_X_training))
             acc = self.get_accuracy(p_Y_validation, p_X_validation)
             print("acc: {}, loss: {}".format(acc, loss))
 
-        return out[-1][1]
+    def _backward_pass(self, out, y, alfa):
+        delta = None
+        _w = None
+        expected, calculated = y[0], out[-1][1][0]
+        if expected == 0 and random.random() > alfa:
+            return
+        for idx, layer in enumerate(reversed(self.layers)):
+            outIndex = len(out) - idx - 1
+            a = np.array(out[outIndex][1])
+            z = np.array(out[outIndex][0])
+            layer_input = np.array(out[outIndex - 1][1], ndmin=2)
+            if idx == 0:
+                delta = (expected - calculated) * sigDx(z)
+            else: 
+                delta = (delta @ _w.T) * sigDx(z)
+           
+            _w = layer.w[1:,:]
+            
+            delta = np.array(delta, ndmin=2)
+                     
+            layer.w[0,:] = layer.w[0,:] + self.eta * np.mean(delta)
+            layer.w[1:,:] = layer.w[1:,:] + self.eta * layer_input.T @ delta
+
+
+    def _forward_pass(self, x):
+        out = [(x, x)]
+        for layer in self.layers:
+            z = layer._net_input(out[-1][1])
+            a = layer._activation(z)
+            out.append((z, a))
+        
+        return out
 
     def get_accuracy(self, p_Y_target, p_X):
         total = len(p_Y_target)
@@ -128,13 +134,38 @@ class BackPropagation(object):
                 count += 1
 
         return count / total * 100
+    
+    def load_weights(self, sourceFile):
+        with open(sourceFile) as sf:
+            self.wights = json.load(sf)
 
-    def predict(self, p_X):
+    def _load_weights(self):
+        self.input_layer_.w  = self.wights['input']
+        print(self.input_layer_.w.shape)
+        for l, w in zip(self.hidden_layers_, self.wights['hidden']):
+            l.w = w
+        self.output_layer_.w  = self.wights['output']
+         
+    def save_model(self, targetFile):
+        pass
+
+    def save_weights(self, targetFile):
+        data = {'input': self.input_layer_.w.tolist(),
+                'hidden': [layer.w.tolist() for layer in self.hidden_layers_],
+                'output': self.output_layer_.w.tolist()}
+        with open(targetFile, 'w+') as tf:
+            json.dump(data, tf)
+
+    def predict(self, p_X): 
+        return self.output_layer_._quantization(self.get_probability(p_X))
+    
+    def get_probability(self, p_X):
         v_Y_input_layer_ = self.input_layer_.predict(p_X)
         v_X_hidden_layer_ = v_Y_input_layer_
         for v_hiddenlayer in self.hidden_layers_:
             v_Y_hidden_layer_ = v_hiddenlayer.predict(v_X_hidden_layer_)
             v_X_hidden_layer_ = v_Y_hidden_layer_
-        v_X_output_layer_ = v_Y_hidden_layer_
-        v_Y_output_layer_ = self.output_layer_.predict(v_X_output_layer_)
+        v_X_output_layer_ = self.output_layer_._net_input(v_Y_hidden_layer_)
+        v_Y_output_layer_ = self.output_layer_._activation(v_X_output_layer_)
         return v_Y_output_layer_
+

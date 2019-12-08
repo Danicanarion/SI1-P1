@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
+import oversample
 from backpropagation import BackPropagation
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -13,6 +14,8 @@ baseTime = datetime.strptime('2012', '%Y')
 nominalCategorical = ["TIPO_PRECIPITACION",
                       "INTENSIDAD_PRECIPITACION", "ESTADO_CARRETERA"]
 ordinalCategorical = ["WEEKDAY", "CARRIL_CIRCULACION", "NUMERO_EJES"]
+categoricals = nominalCategorical.copy()
+categoricals.extend(ordinalCategorical)
 yField = "ACCIDENTE"
 
 
@@ -114,22 +117,24 @@ def initValues():
     eraseEmptyValues(data, inplace=True)
     data.dropna(inplace=True)
     data.reset_index(inplace=True)
-
-    originalData = getFECHA_HORAformated(data)
-    (trainIndex, testIndex) = getRandomIndexChoice(len(originalData))
+    
+    data = getFECHA_HORAformated(data)
+    (trainIndex, testIndex) = getRandomIndexChoice(len(data))
+    
 
     Y = np.array(
         [1 if 'Yes' == value else 0 for value in data.pop("ACCIDENTE")])
 
     X = np.array(formatDataColumns(data))
-
+    
     x_train, x_test, y_train, y_test = (X[trainIndex, :],
                                         X[testIndex, :],
                                         Y[trainIndex].reshape(-1, 1),
                                         Y[testIndex].reshape(-1, 1))
-
+    
     NN = BackPropagation()
-    print(NN.fit(x_train, y_train, x_test, y_test, 2, [2, 1]))
+    NN.fit(x_train, y_train, x_test, y_test, 2, [8, 4])
+    NN.save_weights('w.json')
 
 
 if __name__ == "__main__":
