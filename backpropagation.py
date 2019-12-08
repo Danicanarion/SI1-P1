@@ -40,6 +40,7 @@ class BackPropagation(object):
 
     """
     wights = None
+    model = None
 
     def __init__(self, p_eta=0.5, p_number_iterations=20, p_random_state=None):
         self.eta = p_eta
@@ -52,7 +53,7 @@ class BackPropagation(object):
             p_Y_validation,
             p_number_hidden_layers=1,
             p_number_neurons_hidden_layers=np.array([1])):
-
+        
         count = np.bincount(p_Y_training.flatten())
         alfa = count[1] / count[0]
         (m, n) = p_X_training.shape
@@ -71,14 +72,9 @@ class BackPropagation(object):
         self.output_layer_ = OutputLayer(p_Y_training.shape[1],
                                          self.hidden_layers_[self.hidden_layers_.__len__() - 1].number_neurons, sig)
 
-        if self.wights != None:
-            self._load_weights()
-        else:
-            self.input_layer_.init_w(self.random_seed)
-            for v_hidden_layer in self.hidden_layers_:
-                v_hidden_layer.init_w(self.random_seed)
-            self.output_layer_.init_w(self.random_seed)
         
+        self._load_weights()
+       
         self.layers = self.hidden_layers_.copy()
         self.layers.append(self.output_layer_)
  
@@ -140,14 +136,48 @@ class BackPropagation(object):
             self.wights = json.load(sf)
 
     def _load_weights(self):
-        self.input_layer_.w  = self.wights['input']
-        print(self.input_layer_.w.shape)
+        if self.wights != None:
+            self._load_preload_weights()
+        else:
+            self._load_default_weights()
+
+    def _load_preload_weights(self):
+        self.input_layer_.w  = np.array(self.wights['input'])
         for l, w in zip(self.hidden_layers_, self.wights['hidden']):
-            l.w = w
-        self.output_layer_.w  = self.wights['output']
-         
+            l.w = np.array(w)
+        self.output_layer_.w  = np.array(self.wights['output'])
+
+
+    def _load_default_weights(self):
+        self.input_layer_.init_w(self.random_seed)
+        for v_hidden_layer in self.hidden_layers_:
+            v_hidden_layer.init_w(self.random_seed)
+        self.output_layer_.init_w(self.random_seed)
+
+
+    def load_model(self, sourceFile):
+        with open(sourceFile) as sf:
+            self.model = json.load(sf)
+
+    def _load_model(self):
+        if self.model != None:
+            pass
+        else:
+            pass
+
     def save_model(self, targetFile):
-        pass
+        inputLayout = self.input_layer_.number_neurons.tolist()
+        hiddenLayout = []
+        for h in self.hidden_layers_:
+            hiddenLayout.append((h.number_neurons.tolist(),
+                                 h.number_inputs_each_neuron.tolist()))
+        outputLayout = (self.output_layer_.number_neurons.tolist(),
+                        self.output_layer_.number_inputs_each_neuron.tolist())
+        data = {'input': inputLayout,
+                'hidden': hiddenLayout,
+                'output': outputLayout}
+        with open(targetFile, 'w+') as tf:
+            json.dump(data, tf)
 
     def save_weights(self, targetFile):
         data = {'input': self.input_layer_.w.tolist(),

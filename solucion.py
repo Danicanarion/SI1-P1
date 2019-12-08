@@ -6,7 +6,6 @@ import sys
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-import oversample
 from backpropagation import BackPropagation
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -133,6 +132,7 @@ def initValues():
                                         Y[testIndex].reshape(-1, 1))
     
     NN = BackPropagation()
+    NN.load_weights('w.json')
     NN.fit(x_train, y_train, x_test, y_test, 2, [8, 4])
     NN.save_weights('w.json')
 
